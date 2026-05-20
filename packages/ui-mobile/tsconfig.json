@@ -1,0 +1,4 @@
+{
+  "extends": "@plaksha/tsconfig/expo.json",
+  "include": ["src/**/*"]
+}
