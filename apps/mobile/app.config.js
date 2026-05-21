@@ -9,7 +9,19 @@ const wsBaseUrl =
 module.exports = {
   expo: {
     ...base,
-    plugins: [...(base.plugins ?? []), 'expo-asset', 'expo-font'],
+    plugins: [
+      ...(base.plugins ?? []),
+      'expo-asset',
+      'expo-font',
+      [
+        'expo-build-properties',
+        {
+          android: {
+            kotlinVersion: '1.9.25',
+          },
+        },
+      ],
+    ],
     extra: {
       ...base.extra,
       apiBaseUrl,
