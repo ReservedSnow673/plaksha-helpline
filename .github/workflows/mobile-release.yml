@@ -32,6 +32,8 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
+        env:
+          EXPO_USE_METRO_WORKSPACE_ROOT: '1'
         run: pnpm install --frozen-lockfile
 
       - name: Generate app icons
@@ -50,12 +52,14 @@ jobs:
         env:
           EXPO_PUBLIC_API_BASE_URL: http://localhost:4000
           EXPO_PUBLIC_WS_BASE_URL: ws://localhost:4000
+          EXPO_USE_METRO_WORKSPACE_ROOT: '1'
           NODE_ENV: production
         run: npx expo prebuild --platform android --no-install
 
       - name: Build preview APK
         working-directory: apps/mobile/android
         env:
+          EXPO_USE_METRO_WORKSPACE_ROOT: '1'
           NODE_ENV: production
         run: ./gradlew :app:assembleDebug --no-daemon --stacktrace -PreactNativeArchitectures=arm64-v8a,x86_64
 
@@ -88,6 +92,8 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
+        env:
+          EXPO_USE_METRO_WORKSPACE_ROOT: '1'
         run: pnpm install --frozen-lockfile
 
       - name: Generate app icons
@@ -98,6 +104,7 @@ jobs:
         env:
           EXPO_PUBLIC_API_BASE_URL: http://localhost:4000
           EXPO_PUBLIC_WS_BASE_URL: ws://localhost:4000
+          EXPO_USE_METRO_WORKSPACE_ROOT: '1'
           NODE_ENV: production
         run: npx expo prebuild --platform ios --no-install
 
@@ -108,6 +115,7 @@ jobs:
       - name: Build iOS Simulator app
         working-directory: apps/mobile/ios
         env:
+          EXPO_USE_METRO_WORKSPACE_ROOT: '1'
           NODE_ENV: production
         run: |
           WORKSPACE=$(find . -maxdepth 1 -name '*.xcworkspace' | head -n 1)
