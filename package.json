@@ -38,6 +38,9 @@
     "typescript": "^5.7.2"
   },
   "pnpm": {
+    "overrides": {
+      "react-native-reanimated": "~3.16.1"
+    },
     "onlyBuiltDependencies": [
       "@nestjs/core",
       "argon2",
