@@ -149,7 +149,10 @@ jobs:
   publish:
     name: Publish GitHub release
     needs: [android-apk, ios-simulator]
-    if: inputs.publish_release == 'true' && needs.android-apk.result == 'success'
+    if: >-
+      inputs.publish_release == 'true' &&
+      needs.android-apk.result == 'success' &&
+      always()
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4

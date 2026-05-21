@@ -1,0 +1,343 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v0.1.0)'
+        required: true
+        default: 'v0.1.0'
+
+permissions:
+  contents: write
+
+env:
+  TAG: ${{ inputs.tag }}
+  PNPM_VERSION: '10.5.0'
+  NODE_VERSION: '22'
+
+jobs:
+  build-web:
+    name: Web dashboard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: |
+          echo "shamefully-hoist=true" >> .npmrc
+          pnpm install --no-frozen-lockfile
+
+      - name: Build web dashboard
+        env:
+          NODE_ENV: production
+          API_BASE_URL: http://localhost:4000
+          NEXT_PUBLIC_API_BASE_URL: /api
+        run: pnpm exec turbo build --filter=@plaksha/web...
+
+      - name: Package web dashboard
+        run: |
+          mkdir -p release-artifacts
+          cd apps/web
+          zip -r "../../release-artifacts/plaksha-helpline-${TAG}-web-dashboard.zip" \
+            .next public package.json next.config.mjs
+          cd ../..
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-dashboard
+          path: release-artifacts/plaksha-helpline-${{ env.TAG }}-web-dashboard.zip
+
+  build-api:
+    name: API server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: |
+          echo "shamefully-hoist=true" >> .npmrc
+          pnpm install --no-frozen-lockfile
+
+      - name: Build API
+        env:
+          NODE_ENV: production
+        run: pnpm exec turbo build --filter=@plaksha/api...
+
+      - name: Package API
+        run: |
+          mkdir -p release-artifacts/api-pkg
+          cp -r apps/api/dist release-artifacts/api-pkg/dist
+          cp apps/api/package.json release-artifacts/api-pkg/
+          cp -r infra/migrations release-artifacts/api-pkg/migrations
+          cp -r infra/seeders release-artifacts/api-pkg/seeders
+          cd release-artifacts/api-pkg
+          zip -r "../plaksha-helpline-${TAG}-api.zip" .
+          cd ../..
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: api-server
+          path: release-artifacts/plaksha-helpline-${{ env.TAG }}-api.zip
+
+  build-worker:
+    name: Background worker
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        run: |
+          echo "shamefully-hoist=true" >> .npmrc
+          pnpm install --no-frozen-lockfile
+
+      - name: Build worker
+        env:
+          NODE_ENV: production
+        run: pnpm exec turbo build --filter=@plaksha/worker...
+
+      - name: Package worker
+        run: |
+          mkdir -p release-artifacts/worker-pkg
+          cp -r apps/worker/dist release-artifacts/worker-pkg/dist
+          cp apps/worker/package.json release-artifacts/worker-pkg/
+          cd release-artifacts/worker-pkg
+          zip -r "../plaksha-helpline-${TAG}-worker.zip" .
+          cd ../..
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: worker
+          path: release-artifacts/plaksha-helpline-${{ env.TAG }}-worker.zip
+
+  package-infra:
+    name: Infra bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package infra
+        run: |
+          mkdir -p release-artifacts/infra-pkg
+          cp -r infra/docker release-artifacts/infra-pkg/docker
+          cp -r infra/migrations release-artifacts/infra-pkg/migrations
+          cp -r infra/seeders release-artifacts/infra-pkg/seeders
+          cp .env.example release-artifacts/infra-pkg/
+          cp render.yaml release-artifacts/infra-pkg/ 2>/dev/null || true
+          cp vercel.json release-artifacts/infra-pkg/ 2>/dev/null || true
+          cd release-artifacts/infra-pkg
+          zip -r "../plaksha-helpline-${TAG}-infra.zip" .
+          cd ../..
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: infra
+          path: release-artifacts/plaksha-helpline-${{ env.TAG }}-infra.zip
+
+  android-apk:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        env:
+          EXPO_USE_METRO_WORKSPACE_ROOT: '1'
+        run: |
+          echo "shamefully-hoist=true" >> .npmrc
+          pnpm install --no-frozen-lockfile
+
+      - name: Generate app icons
+        run: node apps/mobile/scripts/generate-assets.mjs
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
+      - name: Prebuild Android
+        working-directory: apps/mobile
+        env:
+          EXPO_PUBLIC_API_BASE_URL: http://localhost:4000
+          EXPO_PUBLIC_WS_BASE_URL: ws://localhost:4000
+          EXPO_USE_METRO_WORKSPACE_ROOT: '1'
+          NODE_ENV: production
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Build APK
+        working-directory: apps/mobile/android
+        env:
+          EXPO_USE_METRO_WORKSPACE_ROOT: '1'
+          NODE_ENV: production
+        run: ./gradlew :app:assembleDebug --no-daemon -PreactNativeArchitectures=arm64-v8a,x86_64
+
+      - name: Collect APK
+        run: |
+          mkdir -p release-artifacts
+          APK=$(find apps/mobile/android/app/build/outputs/apk -name '*.apk' | head -n 1)
+          test -n "$APK"
+          cp "$APK" "release-artifacts/plaksha-helpline-${TAG}-android.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: release-artifacts/plaksha-helpline-${{ env.TAG }}-android.apk
+
+  ios-simulator:
+    name: iOS Simulator
+    runs-on: macos-14
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - name: Install dependencies
+        env:
+          EXPO_USE_METRO_WORKSPACE_ROOT: '1'
+        run: |
+          echo "shamefully-hoist=true" >> .npmrc
+          pnpm install --no-frozen-lockfile
+
+      - name: Generate app icons
+        run: node apps/mobile/scripts/generate-assets.mjs
+
+      - name: Prebuild iOS
+        working-directory: apps/mobile
+        env:
+          EXPO_PUBLIC_API_BASE_URL: http://localhost:4000
+          EXPO_PUBLIC_WS_BASE_URL: ws://localhost:4000
+          EXPO_USE_METRO_WORKSPACE_ROOT: '1'
+          NODE_ENV: production
+        run: npx expo prebuild --platform ios --no-install
+
+      - name: Install CocoaPods
+        working-directory: apps/mobile/ios
+        run: pod install --repo-update
+
+      - name: Build Simulator app
+        working-directory: apps/mobile/ios
+        env:
+          EXPO_USE_METRO_WORKSPACE_ROOT: '1'
+          NODE_ENV: production
+        run: |
+          WORKSPACE=$(find . -maxdepth 1 -name '*.xcworkspace' | head -n 1)
+          test -n "$WORKSPACE"
+          SCHEME=$(basename "$WORKSPACE" .xcworkspace)
+          xcodebuild \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package Simulator .app
+        run: |
+          mkdir -p release-artifacts
+          APP_PATH=$(find apps/mobile/ios/build/Build/Products/Release-iphonesimulator -maxdepth 1 -name '*.app' | head -n 1)
+          test -n "$APP_PATH"
+          cd "$(dirname "$APP_PATH")"
+          zip -r "${GITHUB_WORKSPACE}/release-artifacts/plaksha-helpline-${TAG}-ios-simulator.zip" "$(basename "$APP_PATH")"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-simulator
+          path: release-artifacts/plaksha-helpline-${{ env.TAG }}-ios-simulator.zip
+
+  publish:
+    name: Publish GitHub release
+    needs:
+      - build-web
+      - build-api
+      - build-worker
+      - package-infra
+      - android-apk
+      - ios-simulator
+    if: always() && !cancelled()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List release artifacts
+        run: |
+          echo "Artifacts to publish:"
+          find dist -type f | sort
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: Plaksha Helpline ${{ env.TAG }}
+          generate_release_notes: true
+          fail_on_unmatched_files: false
+          files: dist/*
+          body: |
+            ## Plaksha Universal Campus Helpline — ${{ env.TAG }}
+
+            Preview release packages (build-only, not QA-tested).
+
+            | Artifact | Component |
+            |----------|-----------|
+            | `*-web-dashboard.zip` | Next.js dispatcher/admin dashboard (run with Node 22 + `pnpm start` in unpacked app) |
+            | `*-api.zip` | NestJS API (`dist/`, migrations, seeders) |
+            | `*-worker.zip` | BullMQ background worker |
+            | `*-infra.zip` | Docker Compose, migrations, `.env.example`, deploy configs |
+            | `*-android.apk` | Android debug APK (sideload; API defaults to `http://localhost:4000`) |
+            | `*-ios-simulator.zip` | iOS Simulator `.app` (macOS + Xcode Simulator only) |
+
+            ### Quick start (local)
+
+            1. Unzip `*-infra.zip`, copy `.env.example` to `.env`, run `docker compose -f infra/docker/docker-compose.dev.yml up -d`
+            2. Deploy API + worker zips with production env vars
+            3. Unzip web dashboard, install deps at monorepo root or use hosted Vercel deploy
+            4. Install Android APK: `adb install *-android.apk`
