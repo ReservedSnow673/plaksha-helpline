@@ -1,26 +1,43 @@
 # Plaksha Universal Campus Helpline
 
-Production-grade emergency response platform for Plaksha University: unifies fragmented department helplines into a single coordinated infrastructure with mobile SOS, IVR routing, realtime responder dispatch, escalation engine, and auditable incident lifecycle.
+Centralized emergency response platform for Plaksha University. The system unifies department helplines into a single service for incident intake, responder dispatch, escalation, real-time coordination, and audit.
 
-## Architecture
+## Overview
 
-See [`docs/architecture/`](docs/architecture/) for the full system design. Quick map:
+The platform supports multiple intake channels (web, mobile SOS, and telephony adapters), role-based access for students, faculty, dispatchers, and responders, and operational tooling for administrators. Backend services use PostgreSQL for persistence, Redis for queues and WebSocket fan-out, and a transactional outbox for reliable event delivery.
 
-- `apps/api` — NestJS HTTP + WebSocket server
-- `apps/worker` — NestJS standalone worker (BullMQ consumers, escalation engine, notification fanout)
-- `apps/web` — Next.js 15 App Router dashboard (dispatchers, admins, analytics)
-- `apps/mobile` — Expo SDK 52 + Expo Router (students, faculty, responders)
-- `packages/shared-*` — Cross-cutting contracts (types, schemas, events, config, utils)
-- `packages/ui-*` — Component libraries (web via shadcn/ui, mobile via NativeWind)
-- `infra/` — Migrations, seeds, docker-compose, k6 scripts, Render blueprint
+## Capabilities
 
-## Prerequisites
+- Magic-link authentication for institutional email (`@plaksha.edu.in`)
+- Incident lifecycle management with assignment and status tracking
+- Real-time updates via WebSocket (Socket.IO)
+- Escalation policies with scheduled background processing
+- In-incident chat and multi-channel notifications
+- Dispatcher dashboard with live map and incident views
+- Mobile SOS and responder workflows (Expo)
+- Audit logging and analytics endpoints
+- Provider adapters for email, SMS, IVR, and push (configurable per environment)
 
-- Node.js >= 22
-- pnpm >= 10
-- Docker Desktop (for local Postgres + Redis)
+## Repository structure
 
-## Quickstart
+| Path | Description |
+|------|-------------|
+| `apps/api` | NestJS HTTP API and WebSocket gateway |
+| `apps/worker` | Background workers (BullMQ): escalation, notifications, retention |
+| `apps/web` | Next.js operations dashboard |
+| `apps/mobile` | Expo mobile application |
+| `packages/shared-*` | Shared types, schemas, events, configuration, utilities |
+| `packages/ui-*` | Shared UI components (web and mobile) |
+| `infra/` | Database migrations, seed data, Docker Compose, load tests |
+| `docs/` | Architecture notes, API reference, operational runbooks |
+
+## Requirements
+
+- Node.js 22 or later
+- pnpm 10 or later
+- Docker Desktop (PostgreSQL and Redis for local development)
+
+## Local development
 
 ```bash
 pnpm install
@@ -31,34 +48,63 @@ pnpm db:seed
 pnpm dev
 ```
 
-Apps will be available at:
+### Service endpoints
 
-- API: <http://localhost:4000>
-- Web: <http://localhost:3000>
-- Mobile: scan the Expo QR from the terminal
-- API docs (dev): <http://localhost:4000/docs>
+| Service | URL |
+|---------|-----|
+| Web application | http://localhost:3000 |
+| API | http://localhost:4000 |
+| API documentation (development) | http://localhost:4000/docs |
+| PostgreSQL (host) | `localhost:5433` |
+| Redis | `localhost:6379` |
 
-With `EMAIL_PROVIDER=mock`, magic-link URLs are printed in the API process logs. Use an `@plaksha.edu.in` address from seeds:
+The web app proxies API requests through `/api` in development. See `apps/web/.env.local` and `.env.example` for environment variables.
+
+### Authentication in development
+
+Set `EMAIL_PROVIDER=mock` in `.env`. Sign-in links are written to the API process log instead of being sent by email. Use one of the seeded institutional accounts:
 
 | Role | Email |
 |------|-------|
 | Student | `student@plaksha.edu.in` |
 | Dispatcher | `dispatcher@plaksha.edu.in` |
 | Security responder | `responder.security@plaksha.edu.in` |
-| Admin | `admin@plaksha.edu.in` |
+| Administrator | `admin@plaksha.edu.in` |
 
-Start Docker Desktop before `pnpm infra:up`. If containers fail to connect, ensure the Docker engine is running.
+Additional seed accounts are defined in `infra/seeders/`.
 
-## Phased Build
+### Common commands
 
-The MVP ships in eight phases (see [`docs/architecture/roadmap.md`](docs/architecture/roadmap.md)). Phase 1 magic-link auth + Phase 5 mobile SOS are production-functional without Microsoft Entra or Twilio credentials. Phase 2 OIDC and Phase 6 IVR are adapter-pattern swap-ins gated by `MS_AUTH_ENABLED` and `IVR_PROVIDER` env vars.
+```bash
+pnpm build          # Build all packages and applications
+pnpm lint           # Lint the monorepo
+pnpm typecheck      # Type-check the monorepo
+pnpm test           # Run unit tests
+pnpm infra:down     # Stop local Docker services
+```
+
+## Configuration
+
+Copy `.env.example` to `.env` and adjust values for your environment. Key settings:
+
+- `DATABASE_URL` — PostgreSQL connection string (default port `5433` in Docker Compose)
+- `REDIS_URL` — Redis connection string
+- `EMAIL_PROVIDER` — `mock` (development) or `resend` (production)
+- `IVR_PROVIDER` — `mock`, `twilio`, or `exotel`
+- `MS_AUTH_ENABLED` — Enable Microsoft Entra ID when credentials are available
+
+Secrets must not be committed. `.env` is excluded from version control.
 
 ## Documentation
 
-- [`docs/architecture/`](docs/architecture/) — System design, ADRs, links
-- [`docs/runbooks/`](docs/runbooks/) — On-call procedures, incident response, deploy/rollback
-- [`docs/api/`](docs/api/) — OpenAPI spec output (regenerated via `pnpm --filter @plaksha/api docs:gen`)
+- [Architecture](docs/architecture/) — System design and delivery roadmap
+- [Runbooks](docs/runbooks/) — Operations, deployment, and security checklists
+- [API](docs/api/) — OpenAPI specification (`pnpm --filter @plaksha/api docs:gen`)
+
+## Deployment
+
+Production deployment targets are defined in `render.yaml` (API and worker) and `apps/web/vercel.json` (web). See [Deploy and rollback](docs/runbooks/deploy-rollback.md) for operational guidance.
 
 ## License
 
-UNLICENSED — internal Plaksha University property.
+UNLICENSED — proprietary software of Plaksha University. All rights reserved.
