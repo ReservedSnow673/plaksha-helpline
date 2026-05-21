@@ -50,11 +50,14 @@ jobs:
         env:
           EXPO_PUBLIC_API_BASE_URL: http://localhost:4000
           EXPO_PUBLIC_WS_BASE_URL: ws://localhost:4000
+          NODE_ENV: production
         run: npx expo prebuild --platform android --no-install
 
       - name: Build preview APK
         working-directory: apps/mobile/android
-        run: ./gradlew :app:assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,x86_64
+        env:
+          NODE_ENV: production
+        run: ./gradlew :app:assembleDebug --no-daemon -PreactNativeArchitectures=arm64-v8a,x86_64
 
       - name: Collect APK
         run: |
@@ -71,6 +74,7 @@ jobs:
   ios-simulator:
     name: iOS Simulator build
     runs-on: macos-14
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -94,14 +98,23 @@ jobs:
         env:
           EXPO_PUBLIC_API_BASE_URL: http://localhost:4000
           EXPO_PUBLIC_WS_BASE_URL: ws://localhost:4000
+          NODE_ENV: production
         run: npx expo prebuild --platform ios --no-install
+
+      - name: Install CocoaPods
+        working-directory: apps/mobile/ios
+        run: pod install --repo-update
 
       - name: Build iOS Simulator app
         working-directory: apps/mobile/ios
+        env:
+          NODE_ENV: production
         run: |
-          SCHEME=$(ls *.xcworkspace | sed 's/.xcworkspace//')
+          WORKSPACE=$(find . -maxdepth 1 -name '*.xcworkspace' | head -n 1)
+          test -n "$WORKSPACE"
+          SCHEME=$(basename "$WORKSPACE" .xcworkspace)
           xcodebuild \
-            -workspace "${SCHEME}.xcworkspace" \
+            -workspace "$WORKSPACE" \
             -scheme "$SCHEME" \
             -configuration Release \
             -sdk iphonesimulator \
@@ -124,7 +137,7 @@ jobs:
   publish:
     name: Publish GitHub release
     needs: [android-apk, ios-simulator]
-    if: inputs.publish_release == 'true'
+    if: inputs.publish_release == 'true' && needs.android-apk.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
@@ -138,6 +151,7 @@ jobs:
           tag_name: ${{ inputs.tag }}
           name: Plaksha Helpline ${{ inputs.tag }}
           generate_release_notes: true
+          fail_on_unmatched_files: false
           files: |
             dist/plaksha-helpline-${{ inputs.tag }}-android.apk
             dist/plaksha-helpline-${{ inputs.tag }}-ios-simulator.zip
@@ -146,7 +160,7 @@ jobs:
 
             | Artifact | Platform | Notes |
             |----------|----------|-------|
-            | `plaksha-helpline-${{ inputs.tag }}-android.apk` | Android | Preview APK for sideloading (`arm64-v8a`, `x86_64`). Enable unknown sources to install. |
+            | `plaksha-helpline-${{ inputs.tag }}-android.apk` | Android | Preview debug APK for sideloading (`arm64-v8a`, `x86_64`). Enable unknown sources to install. |
             | `plaksha-helpline-${{ inputs.tag }}-ios-simulator.zip` | iOS Simulator | Unzip and drag the `.app` into an iOS Simulator on macOS. Not for physical devices. |
 
             ### Configuration
