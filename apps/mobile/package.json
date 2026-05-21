@@ -46,7 +46,8 @@
     "zustand": "^5.0.1"
   },
   "devDependencies": {
-    "@babel/core": "^7.25.2",
+    "@babel/core": "^7.29.0",
+    "@babel/plugin-transform-react-jsx": "^7.28.6",
     "@plaksha/eslint-config": "workspace:*",
     "@plaksha/tsconfig": "workspace:*",
     "@types/react": "~18.3.12",

@@ -34,7 +34,9 @@ jobs:
       - name: Install dependencies
         env:
           EXPO_USE_METRO_WORKSPACE_ROOT: '1'
-        run: pnpm install --frozen-lockfile
+        run: |
+          echo "shamefully-hoist=true" >> .npmrc
+          pnpm install --no-frozen-lockfile
 
       - name: Generate app icons
         run: node apps/mobile/scripts/generate-assets.mjs
@@ -94,7 +96,9 @@ jobs:
       - name: Install dependencies
         env:
           EXPO_USE_METRO_WORKSPACE_ROOT: '1'
-        run: pnpm install --frozen-lockfile
+        run: |
+          echo "shamefully-hoist=true" >> .npmrc
+          pnpm install --no-frozen-lockfile
 
       - name: Generate app icons
         run: node apps/mobile/scripts/generate-assets.mjs
