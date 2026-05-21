@@ -1,0 +1,95 @@
+# Render blueprint for Plaksha Universal Campus Helpline.
+# Deployed via "New from Blueprint" in Render dashboard.
+#
+# The frontend (apps/web) deploys to Vercel separately. Render hosts:
+#   - api  : public NestJS HTTP + WebSocket gateway
+#   - worker: NestJS standalone process (BullMQ workers, outbox poller, schedulers)
+#
+# Databases (Neon Postgres) and Redis (Upstash) live outside Render and are wired
+# into both services via environment variables on the Render dashboard.
+
+services:
+  - type: web
+    name: plaksha-api
+    runtime: node
+    region: singapore
+    plan: standard
+    branch: main
+    rootDir: .
+    autoDeploy: true
+    buildCommand: |
+      corepack enable
+      corepack prepare pnpm@10.5.0 --activate
+      pnpm install --frozen-lockfile
+      pnpm --filter @plaksha/api build
+    startCommand: |
+      pnpm --filter @plaksha/api start:prod
+    healthCheckPath: /health/ready
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: APP_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: LOG_LEVEL
+        value: info
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: AES_ENCRYPTION_KEY_BASE64
+        sync: false
+      - key: PHONE_HMAC_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+      - key: PUBLIC_API_BASE_URL
+        sync: false
+      - key: PUBLIC_WEB_BASE_URL
+        sync: false
+      - key: INSTITUTIONAL_EMAIL_DOMAIN
+        value: plaksha.edu.in
+
+  - type: worker
+    name: plaksha-worker
+    runtime: node
+    region: singapore
+    plan: standard
+    branch: main
+    rootDir: .
+    autoDeploy: true
+    buildCommand: |
+      corepack enable
+      corepack prepare pnpm@10.5.0 --activate
+      pnpm install --frozen-lockfile
+      pnpm --filter @plaksha/worker build
+    startCommand: |
+      pnpm --filter @plaksha/worker start:prod
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: APP_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: AES_ENCRYPTION_KEY_BASE64
+        sync: false
+      - key: PHONE_HMAC_SECRET
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+      - key: INSTITUTIONAL_EMAIL_DOMAIN
+        value: plaksha.edu.in
