@@ -1,0 +1,160 @@
+name: Mobile release build
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. v0.1.0)'
+        required: true
+        default: 'v0.1.0'
+      publish_release:
+        description: 'Create/update GitHub release with artifacts'
+        required: true
+        default: 'true'
+
+permissions:
+  contents: write
+
+jobs:
+  android-apk:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.5.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate app icons
+        run: node apps/mobile/scripts/generate-assets.mjs
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Prebuild Android project
+        working-directory: apps/mobile
+        env:
+          EXPO_PUBLIC_API_BASE_URL: http://localhost:4000
+          EXPO_PUBLIC_WS_BASE_URL: ws://localhost:4000
+        run: npx expo prebuild --platform android --no-install
+
+      - name: Build preview APK
+        working-directory: apps/mobile/android
+        run: ./gradlew :app:assembleRelease --no-daemon -PreactNativeArchitectures=arm64-v8a,x86_64
+
+      - name: Collect APK
+        run: |
+          mkdir -p release-artifacts
+          APK=$(find apps/mobile/android/app/build/outputs/apk -name '*.apk' | head -n 1)
+          test -n "$APK"
+          cp "$APK" "release-artifacts/plaksha-helpline-${{ inputs.tag }}-android.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: release-artifacts/plaksha-helpline-${{ inputs.tag }}-android.apk
+
+  ios-simulator:
+    name: iOS Simulator build
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.5.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate app icons
+        run: node apps/mobile/scripts/generate-assets.mjs
+
+      - name: Prebuild iOS project
+        working-directory: apps/mobile
+        env:
+          EXPO_PUBLIC_API_BASE_URL: http://localhost:4000
+          EXPO_PUBLIC_WS_BASE_URL: ws://localhost:4000
+        run: npx expo prebuild --platform ios --no-install
+
+      - name: Build iOS Simulator app
+        working-directory: apps/mobile/ios
+        run: |
+          SCHEME=$(ls *.xcworkspace | sed 's/.xcworkspace//')
+          xcodebuild \
+            -workspace "${SCHEME}.xcworkspace" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Package Simulator .app
+        run: |
+          mkdir -p release-artifacts
+          APP_PATH=$(find apps/mobile/ios/build/Build/Products/Release-iphonesimulator -maxdepth 1 -name '*.app' | head -n 1)
+          cd "$(dirname "$APP_PATH")"
+          zip -r "${GITHUB_WORKSPACE}/release-artifacts/plaksha-helpline-${{ inputs.tag }}-ios-simulator.zip" "$(basename "$APP_PATH")"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-simulator
+          path: release-artifacts/plaksha-helpline-${{ inputs.tag }}-ios-simulator.zip
+
+  publish:
+    name: Publish GitHub release
+    needs: [android-apk, ios-simulator]
+    if: inputs.publish_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          name: Plaksha Helpline ${{ inputs.tag }}
+          generate_release_notes: true
+          files: |
+            dist/plaksha-helpline-${{ inputs.tag }}-android.apk
+            dist/plaksha-helpline-${{ inputs.tag }}-ios-simulator.zip
+          body: |
+            ## Mobile builds (preview)
+
+            | Artifact | Platform | Notes |
+            |----------|----------|-------|
+            | `plaksha-helpline-${{ inputs.tag }}-android.apk` | Android | Preview APK for sideloading (`arm64-v8a`, `x86_64`). Enable unknown sources to install. |
+            | `plaksha-helpline-${{ inputs.tag }}-ios-simulator.zip` | iOS Simulator | Unzip and drag the `.app` into an iOS Simulator on macOS. Not for physical devices. |
+
+            ### Configuration
+
+            These preview builds point at `http://localhost:4000` for API/WebSocket. For on-device testing against a deployed API, rebuild with `EXPO_PUBLIC_API_BASE_URL` and `EXPO_PUBLIC_WS_BASE_URL` set in the workflow or `eas.json`.
+
+            ### Install (Android)
+
+            ```bash
+            adb install plaksha-helpline-${{ inputs.tag }}-android.apk
+            ```

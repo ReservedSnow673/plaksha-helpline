@@ -1,0 +1,19 @@
+/** @type {import('expo/config').ExpoConfig} */
+const base = require('./app.json').expo;
+
+const apiBaseUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? base.extra?.apiBaseUrl ?? 'http://localhost:4000';
+const wsBaseUrl = process.env.EXPO_PUBLIC_WS_BASE_URL ?? base.extra?.wsBaseUrl ?? 'ws://localhost:4000';
+
+module.exports = {
+  expo: {
+    ...base,
+    extra: {
+      ...base.extra,
+      apiBaseUrl,
+      wsBaseUrl,
+      eas: {
+        projectId: process.env.EAS_PROJECT_ID ?? base.extra?.eas?.projectId,
+      },
+    },
+  },
+};

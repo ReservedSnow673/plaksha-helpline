@@ -1,0 +1,30 @@
+{
+  "cli": {
+    "version": ">= 12.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "ios": {
+        "simulator": true
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "http://localhost:4000",
+        "EXPO_PUBLIC_WS_BASE_URL": "ws://localhost:4000"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "http://localhost:4000",
+        "EXPO_PUBLIC_WS_BASE_URL": "ws://localhost:4000"
+      }
+    }
+  }
+}
