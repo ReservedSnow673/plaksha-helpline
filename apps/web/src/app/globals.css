@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --max-content: 1440px;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+/* Leaflet attribution sits flush with the map UI. */
+.leaflet-container {
+  font: inherit;
+}
