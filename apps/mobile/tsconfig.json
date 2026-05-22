@@ -1,0 +1,11 @@
+{
+  "extends": "@plaksha/tsconfig/expo.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["app/**/*.ts", "app/**/*.tsx", "src/**/*.ts", "src/**/*.tsx", "global.d.ts"],
+  "exclude": ["node_modules"]
+}

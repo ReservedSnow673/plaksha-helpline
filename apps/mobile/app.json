@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "Plaksha Helpline",
+    "slug": "plaksha-helpline",
+    "scheme": "plakshahelpline",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "platforms": ["ios", "android"],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "in.edu.plaksha.helpline",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Plaksha Helpline uses your location to dispatch responders to your incident.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "On-duty responders share location while a shift is active to enable accurate dispatch.",
+        "NSMicrophoneUsageDescription": "Recordings may be captured during emergency calls with your consent.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "in.edu.plaksha.helpline",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0e2356"
+      },
+      "permissions": ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "POST_NOTIFICATIONS"]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Plaksha Helpline to use your location for dispatch."
+        }
+      ],
+      "expo-secure-store"
+    ],
+    "extra": {
+      "apiBaseUrl": "http://localhost:4000",
+      "wsBaseUrl": "ws://localhost:4000",
+      "institutionalDomain": "plaksha.edu.in"
+    }
+  }
+}
