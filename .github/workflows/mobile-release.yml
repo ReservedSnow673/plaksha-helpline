@@ -41,7 +41,7 @@ jobs:
       - name: Generate app icons
         run: node apps/mobile/scripts/generate-assets.mjs
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
