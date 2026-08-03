@@ -24,7 +24,7 @@
   },
   "dependencies": {
     "@plaksha/shared-types": "workspace:*",
-    "ngeohash": "^0.6.3"
+    "ngeohash": "^0.6.4"
   },
   "devDependencies": {
     "@plaksha/eslint-config": "workspace:*",
